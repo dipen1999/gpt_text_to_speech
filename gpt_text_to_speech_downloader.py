@@ -6,7 +6,7 @@ import ffmpeg  # Import the ffmpeg-python library
 
 # --- Page Configuration ---
 # Set the title and a favicon for the browser tab.
-st.set_page_config(page_title="cURL to MP3 Downloader", page_icon="🎵")
+st.set_page_config(page_title="GPT text to MP3 Downloader", page_icon="🎵")
 
 # --- Application UI ---
 st.title("cURL Command to MP3 Downloader")
