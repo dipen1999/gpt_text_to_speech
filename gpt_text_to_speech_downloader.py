@@ -8,7 +8,7 @@ import shlex
 st.set_page_config(page_title="GPT tex to speech audio Downloader", page_icon="⬇️")
 
 # --- Application UI ---
-st.title("cURL Command Executor & Downloader")
+st.title("GPT text to speech Downloader")
 st.markdown("""
 This application provides a user-friendly interface to execute a `cURL` command and download the resulting output file.
 
