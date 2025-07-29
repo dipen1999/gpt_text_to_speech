@@ -2,6 +2,7 @@ import streamlit as st
 import subprocess
 import os
 import shlex
+import ffmpeg  # Import the ffmpeg-python library
 
 # --- Page Configuration ---
 # Set the title and a favicon for the browser tab.
@@ -10,7 +11,7 @@ st.set_page_config(page_title="cURL to MP3 Downloader", page_icon="🎵")
 # --- Application UI ---
 st.title("cURL Command to MP3 Downloader")
 st.markdown("""
-This application executes a `cURL` command, converts the resulting audio file to MP3, and offers it for download.
+This application executes a `cURL` command, converts the resulting audio file to MP3 using `ffmpeg-python`, and offers it for download.
 
 **How to use:**
 1.  Paste your full `cURL` command into the text area below. The app handles commands copied from the Windows Command Prompt (by removing `^` characters).
@@ -21,7 +22,7 @@ The app will download the audio, convert it to `.mp3`, and provide a download li
 """)
 
 # --- Prerequisite Warning ---
-st.info("ℹ️ **Prerequisite:** This application requires **FFmpeg** to be installed on the system to handle audio conversion. Please ensure it is installed and accessible in your system's PATH.")
+st.info("ℹ️ **Prerequisite:** This application requires **FFmpeg** to be installed on the system to handle audio conversion. The `ffmpeg-python` library is a wrapper around the FFmpeg command-line tool, so the tool itself must still be installed and accessible in your system's PATH.")
 
 
 # --- Security Warning ---
@@ -57,7 +58,7 @@ if st.button("Generate and Download MP3"):
     else:
         # --- Command Construction and Execution ---
         aac_file = None
-        mp3_file = None
+        mp3_file_path = None
         try:
             # Use os.path.basename to prevent directory traversal attacks
             safe_filename = os.path.basename(file_name_input)
@@ -101,24 +102,19 @@ if st.button("Generate and Download MP3"):
                 st.success(f"File '{aac_filename}' downloaded successfully!")
                 aac_file = aac_filename # Mark for cleanup
 
-                # --- AAC to MP3 Conversion Step ---
+                # --- AAC to MP3 Conversion Step using ffmpeg-python ---
                 with st.spinner(f"Converting '{aac_filename}' to '{mp3_filename}'..."):
                     try:
-                        conversion_command = [
-                            "ffmpeg",
-                            "-i", aac_filename,
-                            "-b:a", "192k", # Set audio bitrate
-                            mp3_filename
-                        ]
-                        conversion_process = subprocess.run(
-                            conversion_command,
-                            capture_output=True,
-                            text=True,
-                            check=True # Throw an exception on failure
+                        # Define the input and output for ffmpeg
+                        (
+                            ffmpeg
+                            .input(aac_filename)
+                            .output(mp3_filename, audio_bitrate='192k')
+                            .run(capture_stdout=True, capture_stderr=True, overwrite_output=True)
                         )
                         
                         st.success(f"Successfully converted to '{mp3_filename}'!")
-                        mp3_file = mp3_filename # Mark for cleanup
+                        mp3_file_path = mp3_filename # Mark for cleanup
 
                         # Read the generated MP3 file for the download button
                         with open(mp3_filename, "rb") as file:
@@ -129,15 +125,14 @@ if st.button("Generate and Download MP3"):
                                 mime="audio/mpeg"  # MIME type for MP3
                             )
 
+                    except ffmpeg.Error as e:
+                        st.error("FFmpeg conversion failed.")
+                        st.code(f"FFmpeg Error Output (stderr):\n{e.stderr.decode('utf8')}", language="bash")
                     except FileNotFoundError:
                         st.error(
-                            "Error: `ffmpeg` command not found. "
+                            "Error: `ffmpeg` executable not found. "
                             "Please ensure FFmpeg is installed and accessible in your system's PATH."
                         )
-                    except subprocess.CalledProcessError as e:
-                        st.error("FFmpeg conversion failed.")
-                        st.code(f"FFmpeg Error Output:\n{e.stderr}", language="bash")
-
 
         except FileNotFoundError:
             st.error(
@@ -151,8 +146,7 @@ if st.button("Generate and Download MP3"):
             # Clean up the temporary files after the process is complete
             if aac_file and os.path.exists(aac_file):
                 os.remove(aac_file)
-            if mp3_file and os.path.exists(mp3_file):
+            if mp3_file_path and os.path.exists(mp3_file_path):
                 # Note: Streamlit holds the file in memory for download, 
                 # so deleting it immediately is generally safe.
-                os.remove(mp3_file)
-
+                os.remove(mp3_file_path)
